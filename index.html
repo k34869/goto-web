@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Goto Web</title>
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="referrer" content="no-referrer">
+    <link rel="shortcut icon" href="./logo.png" type="image/png">
+    <link rel="stylesheet" href="./bundle.min.css">
+    <script src="./bundle.min.js"></script>
+</head>
+<body>
+    <div class="header">
+        <mdui-top-app-bar scroll-behavior="hide" scroll-threshold="30" scroll-target=".example-scroll-behavior-hide">
+            <img src="./logo.png" class="nat-icon">
+            <div style="flex-grow: 1"></div>
+            <mdui-text-field class="search" label="搜索"></mdui-text-field>
+            <mdui-button-icon icon="wb_sunny" class="theme" onclick="extendWebPage.toggleTheme()"></mdui-button-icon>
+        </mdui-top-app-bar>
+        <div class="example-scroll-behavior-hide" style="overflow: auto;"></div>
+    </div>
+    <div class="main">
+        <mdui-list class="page-list"></mdui-list>
+    </div>
+    <mdui-snackbar class="snackbar" auto-close-delay="2800">archived</mdui-snackbar>
+</body>
+<script>
+    (function (global) {
+        Array.prototype.conMultiArr = function () {
+            return this.slice(0, -1).map((e, i) => [e, this[i + 1]]);
+        }
+        let localTest = {
+            routes: ['*://*:5501/*','*://*:8080/*'],
+            extend: {
+                $header: $('body > .header'),
+                $snackbar: $('body > .snackbar'),
+                $mduiList: $('.main .page-list'),
+                $search: $('.header .search'),
+                $iframe: $('<iframe id="view" src="" frameborder="0"></iframe>'),
+                /**
+                 * toggleTheme 切换主题
+                 * @returns {void}
+                */
+                toggleTheme() {
+                    localStorage.theme = mdui.getTheme() === 'light' ? 'dark' : 'light'
+                    mdui.setTheme(localStorage.theme)
+                    $('mdui-button-icon.theme').attr('icon', localStorage.theme === 'light' ? 'wb_sunny' : 'bedtime')
+                },
+                /**
+                 * getUrlMaps, 获取URL映射数据
+                 * @param {Function} callback 回调函数, 参数: (res|获取结果)
+                 * @returns {void}
+                */
+                getUrlMaps(filterStr = '', callback) {
+                    $.getJSON('./url_map.json', ({ data }) => {
+                        if (filterStr !== '') {
+                            let keys = Object.keys(data)
+                            keys.forEach(e => {
+                                let regex = new RegExp(`${filterStr}`, 'gi')
+                                let matchRes = data[e].name.match(regex)
+                                if (matchRes === null) 
+                                    delete data[e]
+                                else {
+                                    let spValue = data[e].name.split(regex).conMultiArr()
+                                    let conArr = []
+                                    for (let i = 0; i < spValue.length; i++) {
+                                        let con = spValue[i].join(`<b style="color: #e46d8f;font-weight: bold">${matchRes[i]}</b>`)
+                                        if (i > 0) 
+                                            con = con.replace(new RegExp(`^${spValue[i][0]}`), '')
+                                        conArr.push(con)
+                                    }
+                                    data[e].name = conArr.join('')
+                                }
+                            })
+                        }
+                        callback(data)
+                    })
+                },
+                /**
+                 * renderList, 渲染列表
+                 * @param {Object} urlMaps URL映射数据
+                 * @returns {void}
+                */
+                renderList(urlMaps) {
+                    this.$mduiList.html('')
+                    for (let key in urlMaps) {
+                        this.$mduiList.append(`<a href="${urlMaps[key].url}" target="_blank"><mdui-list-item class="list-item" rounded title="${urlMaps[key].url}" description="${urlMaps[key].description}"><mdui-avatar slot="icon" src="${urlMaps[key].icon}"></mdui-avatar>${urlMaps[key].name}</mdui-list-item></a>`)    
+                    }
+                },
+                /**
+                 * gotoWebPage, 跳转页面
+                 * @param {Object} urlMaps URL映射数据
+                 * @param {String} gotoPageName 跳转页面的名称(key)
+                 * @param {String} target 跳转方式(self, blank, iframe)
+                 * @returns {void}
+                */
+                gotoWebPage(urlMaps, gotoPageName, target = 'self') {
+                    for (let key in urlMaps) {
+                        if (gotoPageName === key) {
+                            let url = urlMaps[key].url
+                            if (target === 'self') {
+                                location.href = url
+                                throw new Error('goto web')
+                            } else if (target === 'blank') 
+                                window.open(url, '_blank')
+                            else if (target === 'iframe') {
+                                this.$iframe.attr('src', url)
+                                this.$header.css('display', 'none')
+                                $(document.body).append(this.$iframe)
+                                document.title = key
+                                throw new Error('goto web')
+                            }
+                        }
+                    }
+                }
+            },
+            startExec() {
+                if (localStorage.theme === 'dark') {
+                    mdui.setTheme(localStorage.theme)
+                    $('mdui-button-icon.theme').attr('icon', 'bedtime')
+                }
+                let parS = $.url().param('s')
+                let parN = $.url().param('n')
+                let parT = $.url().param('t')
+                this.getUrlMaps(parS, res => {
+                    this.gotoWebPage(res, parN, parT)
+                    this.$search[0].value = parS === undefined ? '' : parS
+                    this.renderList(res)
+                })
+                $(window).on('keydown', e => {
+                    if (e.code === 'Slash') 
+                        setTimeout(() => {
+                            this.$search[0].focus()
+                        }, 50)
+                })
+                this.$search.on('keydown', e => {
+                    if (e.keyCode == 13) {
+                        let value = e.target.value
+                        location.search = `?s=${value}`
+                    }
+                })
+            }
+        }
+        /**
+         * urlMatch, URL 通配符模式匹配
+         * @param {String} pattern 模式, 支持使用通配符
+         * @param {String} url 要匹配的URL
+         * @returns {Boolean} 匹配结果
+         * */
+        function urlMatch(pattern, url) {
+            pattern = pattern.replace(/\*/g, '.*?')
+            pattern = '^' + pattern + '$'
+            const regex = new RegExp(pattern)
+            return regex.test(url)
+        }
+
+        /**
+         * extendWebPage, 扩展Web页面
+         * @param {Array} options 配置项
+         * @returns {Proxy}
+         * */
+        function extendWebPage(options) {
+            let target = {}
+            for (let i = 0; i < options.length; i++) {
+                let { routes, style, startExec, bodyExec, loadExec, extend } = options[i]
+                Object.assign(target, extend instanceof Object === false ? {} : extend)
+                if (typeof routes === 'string')
+                    routes = new Array(routes)
+                for (let i = 0; i < routes.length; i++) {
+                    if (urlMatch(routes[i], location.href)) {
+                        $(document.head)
+                            .append(`<style>${style}</style>`)
+                        if (typeof startExec === 'function')
+                            startExec.call(target)
+                        if (typeof bodyExec === 'function') {
+                            bodyExec = bodyExec.bind(target)
+                            $(document)
+                                .on('DOMContentLoaded', e.bodyExec)
+                        }
+                        if (typeof loadExec === 'function') {
+                            loadExec = loadExec.bind(target)
+                            $(window)
+                                .on('load', loadExec)
+                        }
+                    }
+                }
+            }
+            return new Proxy(target, {
+                get(target, key) {
+                    return target[key]
+                },
+                set(target, key, value) {
+                    target[key] = value
+                }
+            })
+        }
+
+        global.extendWebPage = extendWebPage([ localTest ])
+    })(window)
+</script>
+
+</html>
