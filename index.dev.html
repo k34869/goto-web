@@ -33,7 +33,7 @@
             return this.slice(0, -1).map((e, i) => [e, this[i + 1]])
         }
         let routeGw = {
-            routes: [ '*://gw.timeic.top/*' ],
+            routes: [ '*://*:5501/*', '*://gw.timeic.top/*' ],
             extend: {
                 $header: $('body > .header'),
                 $snackbar: $('body > .snackbar'),
@@ -85,10 +85,17 @@
                  * @returns {void}
                 */
                 renderList(urlMaps) {
+                    let keys = Object.keys(urlMaps)
                     this.$mduiList.html('')
-                    for (let key in urlMaps) {
-                        this.$mduiList.append(`<a href="${urlMaps[key].url}" target="_blank"><mdui-list-item class="list-item" rounded title="${urlMaps[key].url}" description="${urlMaps[key].description}"><mdui-avatar slot="icon" src="${urlMaps[key].icon}"></mdui-avatar>${urlMaps[key].name}</mdui-list-item></a>`)    
+                    if (keys.length === 0) {
+                        this.$snackbar.html('啥也没有')[0].open = true
+                        return
                     }
+                    keys.forEach(key => {
+                        let $listItem = $(`<a href="${urlMaps[key].url}" target="_blank"><mdui-list-item class="list-item" rounded title="${urlMaps[key].url}" description="${urlMaps[key].description}"><mdui-avatar slot="icon" src="${urlMaps[key].icon}"></mdui-avatar>${urlMaps[key].name}</mdui-list-item></a>`)
+                        this.$mduiList.append($listItem)
+                        $listItem.hide().fadeIn(400)
+                    })
                 },
                 /**
                  * gotoWebPage, 跳转页面
@@ -118,6 +125,7 @@
                 }
             },
             startExec() {
+                this.$mduiList.append('<mdui-circular-progress style="margin: auto;position: absolute;left: 0;right: 0;top: 50px;bottom: 0;"></mdui-circular-progress>')
                 if (localStorage.theme === 'dark') {
                     mdui.setTheme(localStorage.theme)
                     $('mdui-button-icon.theme').attr('icon', 'bedtime')
@@ -139,7 +147,10 @@
                 this.$search.on('keydown', e => {
                     if (e.keyCode == 13) {
                         let value = e.target.value
-                        location.search = `?s=${value}`
+                        this.$mduiList.html('<mdui-circular-progress style="margin: auto;position: absolute;left: 0;right: 0;top: 50px;bottom: 0;"></mdui-circular-progress>')
+                        this.getUrlMaps(value, res => {
+                            this.renderList(res)
+                        })
                     }
                 })
             }
