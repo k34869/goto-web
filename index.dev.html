@@ -18,7 +18,9 @@
             <img src="./logo.png" class="nat-icon">
             <div style="flex-grow: 1"></div>
             <mdui-text-field class="search" label="搜索"></mdui-text-field>
-            <mdui-button-icon icon="wb_sunny" class="theme" onclick="extendWebPage.toggleTheme()"></mdui-button-icon>
+            <mdui-tooltip content="切换主题">
+                <mdui-button-icon icon="wb_sunny" class="theme" onclick="extendWebPage.toggleTheme()"></mdui-button-icon>
+            </mdui-tooltip>
         </mdui-top-app-bar>
         <div class="example-scroll-behavior-hide" style="overflow: auto;"></div>
     </div>
@@ -147,6 +149,7 @@
                 this.$search.on('keydown', e => {
                     if (e.keyCode == 13) {
                         let value = e.target.value
+                        e.target.blur()
                         this.$mduiList.html('<mdui-circular-progress style="margin: auto;position: absolute;left: 0;right: 0;top: 50px;bottom: 0;"></mdui-circular-progress>')
                         this.getUrlMaps(value, res => {
                             this.renderList(res)
